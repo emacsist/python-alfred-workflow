@@ -3,6 +3,7 @@
 import requests
 import json
 from bs4 import BeautifulSoup
+import sys
 
 import requests
 
@@ -53,6 +54,18 @@ list_3year=[]
 list_5year=[]
 
 i = 0
+input_bank = "工"
+
+if len(sys.argv) >= 2:
+    input_bank = sys.argv[1]
+
+#print("输入的ban为 {}".format(input_bank))
+
+def subtitleFormat(item):
+    subtitleFormat="max:{}%, min:{}%, diff: {:.2f}%, 存1W元每期相差:{:.2f}元"
+    diff_rate = float(item[0]["rate"])-float(item[-1]["rate"])
+    return subtitleFormat.format(item[0]["rate"], item[-1]["rate"], diff_rate, diff_rate * 100)
+
 for tr in trs :
     index = 0
     tds = tr.find_all("td")
@@ -82,6 +95,9 @@ for tr in trs :
         bank_name = "人民银行基准"
         index += 1
 
+    if bank_name != "人民银行基准" and (input_bank.strip() != "" and input_bank not in bank_name):
+        continue
+
     demand_deposit_interest_rate = tds[index].get_text()
     index += 1
 
@@ -95,10 +111,11 @@ for tr in trs :
     
     whole_deposit_and_whole_withdrawal_6month = tds[index].get_text()
     index += 1
-    list_6month.append({
-        "name":bank_name,
-        "rate":whole_deposit_and_whole_withdrawal_6month
-    })
+    if i != 0 :
+        list_6month.append({
+            "name":bank_name,
+            "rate":whole_deposit_and_whole_withdrawal_6month
+        })
 
     whole_deposit_and_whole_withdrawal_1year = tds[index].get_text()
     index += 1
@@ -110,10 +127,11 @@ for tr in trs :
 
     whole_deposit_and_whole_withdrawal_2year = tds[index].get_text()
     index += 1
-    list_2year.append({
-        "name":bank_name,
-        "rate":whole_deposit_and_whole_withdrawal_2year
-    })    
+    if i != 0 :
+        list_2year.append({
+            "name":bank_name,
+            "rate":whole_deposit_and_whole_withdrawal_2year
+        })    
 
     whole_deposit_and_whole_withdrawal_3year = tds[index].get_text()
     index += 1
@@ -157,7 +175,19 @@ for tr in trs :
             "path": "img/money.png"
         }
     }
+    item2 = {
+        "title": "{} 零存整取利率".format(bank_name),
+        "subtitle": "1年:{}%|3年:{}%|5年:{}%".format(
+            lump_sum_withdrawal_1year,
+            lump_sum_withdrawal_3year,
+            lump_sum_withdrawal_5year
+        ), 
+        "icon": {
+            "path": "img/money.png"
+        }
+    }
     alfredResponse.append(item)
+    alfredResponse.append(item2)
 
 list_3month.sort(key=lambda e: e["rate"], reverse=True)
 list_6month.sort(key=lambda e: e["rate"], reverse=True)
@@ -166,9 +196,10 @@ list_2year.sort(key=lambda e: e["rate"], reverse=True)
 list_3year.sort(key=lambda e: e["rate"], reverse=True)
 list_5year.sort(key=lambda e: e["rate"], reverse=True)
 
+
 list_3month_item = {
     "title":"三个月max {}, min {}".format(list_3month[0]["name"], list_3month[-1]["name"]),
-    "subtitle": "最大利率为 {}%, 最小利率为 {}%".format(list_3month[0]["rate"], list_3month[-1]["rate"]),
+    "subtitle": subtitleFormat(list_3month),
     "icon":{
         "path": "img/money.png"
     }
@@ -176,7 +207,7 @@ list_3month_item = {
 
 list_6month_item = {
     "title":"六个月max {}, min {}".format(list_6month[0]["name"], list_6month[-1]["name"]),
-    "subtitle": "最大利率为 {}%, 最小利率为 {}%".format(list_6month[0]["rate"], list_6month[-1]["rate"]),
+    "subtitle": subtitleFormat(list_6month),
     "icon":{
         "path": "img/money.png"
     }
@@ -184,7 +215,7 @@ list_6month_item = {
 
 list_1year_item = {
     "title":"一年max {}, min {}".format(list_1year[0]["name"], list_1year[-1]["name"]),
-    "subtitle": "最大利率为 {}%, 最小利率为 {}%".format(list_1year[0]["rate"], list_1year[-1]["rate"]),
+    "subtitle": subtitleFormat(list_1year),
     "icon":{
         "path": "img/money.png"
     }
@@ -192,7 +223,7 @@ list_1year_item = {
 
 list_2year_item = {
     "title":"二年max {}, min {}".format(list_2year[0]["name"], list_2year[-1]["name"]),
-    "subtitle": "最大利率为 {}%, 最小利率为 {}%".format(list_2year[0]["rate"], list_2year[-1]["rate"]),
+    "subtitle": subtitleFormat(list_2year),
     "icon":{
         "path": "img/money.png"
     }
@@ -200,7 +231,7 @@ list_2year_item = {
 
 list_3year_item = {
     "title":"三年max {}, min {}".format(list_3year[0]["name"], list_3year[-1]["name"]),
-    "subtitle": "最大利率为 {}%, 最小利率为 {}%".format(list_3year[0]["rate"], list_3year[-1]["rate"]),
+    "subtitle": subtitleFormat(list_3year),
     "icon":{
         "path": "img/money.png"
     }
@@ -209,7 +240,7 @@ list_3year_item = {
 
 list_5year_item = {
     "title":"五年max {}, min {}".format(list_5year[0]["name"], list_5year[-1]["name"]),
-    "subtitle": "最大利率为 {}%, 最小利率为 {}%".format(list_5year[0]["rate"], list_5year[-1]["rate"]),
+    "subtitle": subtitleFormat(list_5year),
     "icon":{
         "path": "img/money.png"
     }
