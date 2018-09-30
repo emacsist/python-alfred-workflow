@@ -4,11 +4,13 @@ import requests
 import json
 from bs4 import BeautifulSoup
 import sys
+import time
+import numpy as np
 
 import requests
 
 cookies = {
-    'Hm_lvt_f65ab30a4196388f1696a9a62fbdc763': '1503068767',
+    'Hm_lvt_f65ab30a4196388f1696a9a62fbdc763': str(int(time.time())),
     'vjuids': '-208f65f5a.15d44652056.0.1a123f655672d',
     'CNZZDATA1262910149': '1747259592-1503067974-http%253A%252F%252Fjingzhi.funds.hexun.com%252F%7C1503067974',
     '__utma': '194262068.1789259452.1503068837.1503068837.1503068837.1',
@@ -46,12 +48,8 @@ trs = table.tbody.find_all("tr")
 
 
 alfredResponse=[]
-list_3month=[]
-list_6month=[]
-list_1year=[]
-list_2year=[]
-list_3year=[]
-list_5year=[]
+
+list_data_item=[[], [], [], [], [], []]
 
 i = 0
 input_bank = "工"
@@ -63,30 +61,22 @@ if len(sys.argv) >= 2:
 
 def subtitleFormat(item):
     subtitleFormat="max:{}%, min:{}%, diff: {:.2f}%, 存1W元每期相差:{:.2f}元"
-    diff_rate = float(item[0]["rate"])-float(item[-1]["rate"])
+    maxRate = "0.0" if item[0]["rate"] == "--" else item[0]["rate"]
+    minRate = "0.0" if item[-1]["rate"] == "--" else item[-1]["rate"]
+    diff_rate = float(maxRate)-float(minRate)
     return subtitleFormat.format(item[0]["rate"], item[-1]["rate"], diff_rate, diff_rate * 100)
 
 for tr in trs :
     index = 0
     tds = tr.find_all("td")
     bank_name = ""
-
-    # 活期
-    demand_deposit_interest_rate = 0.0
+    list_data_item_index = 0
 
     # 整存整取
-    whole_deposit_and_whole_withdrawal_3month = 0.0
-    whole_deposit_and_whole_withdrawal_6month = 0.0
-    whole_deposit_and_whole_withdrawal_1year = 0.0
-    whole_deposit_and_whole_withdrawal_2year = 0.0
-    whole_deposit_and_whole_withdrawal_3year = 0.0
-    whole_deposit_and_whole_withdrawal_5year = 0.0
-
-    # 零存整取
-    lump_sum_withdrawal_1year = 0.0
-    lump_sum_withdrawal_3year = 0.0
-    lump_sum_withdrawal_5year = 0.0
-
+    #活期, 3个月, 6个月, 1年, 2年, 3年, 5年, 0存整取1年, 0存整取3年, 0存整取5年
+    # 共10个元素
+    data_wdww_index = 0
+    data_wdww = [0.0 for x in range(10)]
 
     bank_name = tds[index].get_text()
     index += 1
@@ -94,93 +84,47 @@ for tr in trs :
         # 人民银行基准
         bank_name = "人民银行基准"
         index += 1
+        
 
     if bank_name != "人民银行基准" and (input_bank.strip() != "" and input_bank not in bank_name):
         continue
 
-    demand_deposit_interest_rate = tds[index].get_text()
-    index += 1
-
-    whole_deposit_and_whole_withdrawal_3month = tds[index].get_text()
-    index += 1
-    if i != 0 :
-        list_3month.append({
-            "name":bank_name,
-            "rate":whole_deposit_and_whole_withdrawal_3month
-        })
-    
-    whole_deposit_and_whole_withdrawal_6month = tds[index].get_text()
-    index += 1
-    if i != 0 :
-        list_6month.append({
-            "name":bank_name,
-            "rate":whole_deposit_and_whole_withdrawal_6month
-        })
-
-    whole_deposit_and_whole_withdrawal_1year = tds[index].get_text()
-    index += 1
-    if i != 0 :
-        list_1year.append({
-            "name":bank_name,
-            "rate":whole_deposit_and_whole_withdrawal_1year
-        })
-
-    whole_deposit_and_whole_withdrawal_2year = tds[index].get_text()
-    index += 1
-    if i != 0 :
-        list_2year.append({
-            "name":bank_name,
-            "rate":whole_deposit_and_whole_withdrawal_2year
-        })    
-
-    whole_deposit_and_whole_withdrawal_3year = tds[index].get_text()
-    index += 1
-    if i != 0 :
-        list_3year.append({
-            "name":bank_name,
-            "rate":whole_deposit_and_whole_withdrawal_3year
-        })    
-
-    whole_deposit_and_whole_withdrawal_5year = tds[index].get_text()
-    index += 1
-    if i != 0 :
-        list_5year.append({
-            "name":bank_name,
-            "rate":whole_deposit_and_whole_withdrawal_5year
-        })
-
-    lump_sum_withdrawal_1year = tds[index].get_text()
-    index += 1
-
-    lump_sum_withdrawal_3year = tds[index].get_text()
-    index += 1
-
-    lump_sum_withdrawal_5year = tds[index].get_text()
-    index += 1
-
+    # 活期 -> 0存整取5年
+    # http://data.bank.hexun.com/ll/ckll.aspx
+    for tdindex in range(0, 10):      
+        data_wdww[data_wdww_index] = tds[tdindex + index].get_text()
+        # 只处理 整存整取 范围的
+        if i != 0 and tdindex > 0 and tdindex < 7:
+            list_data_item[list_data_item_index].append({
+                "name":bank_name,
+                "rate":data_wdww[data_wdww_index]
+            })
+            list_data_item_index += 1
+        data_wdww_index += 1
+        
     i += 1
-
     item = {
         "title": "{} 整存整取利率".format(bank_name),
         "subtitle": "活期:{}%|3月:{}%|6月:{}%|1年:{}%|2年:{}%|3年:{}%|5年:{}%".format(
-            demand_deposit_interest_rate,
-            whole_deposit_and_whole_withdrawal_3month,
-            whole_deposit_and_whole_withdrawal_6month,
-            whole_deposit_and_whole_withdrawal_1year,
-            whole_deposit_and_whole_withdrawal_2year,
-            whole_deposit_and_whole_withdrawal_3year,
-            whole_deposit_and_whole_withdrawal_5year
+            data_wdww[0],
+            data_wdww[1],
+            data_wdww[2],
+            data_wdww[3],
+            data_wdww[4],
+            data_wdww[5],
+            data_wdww[6]
         ), 
         "icon": {
             "path": "img/money.png"
         }
     }
+
     item2 = {
         "title": "{} 零存整取利率".format(bank_name),
         "subtitle": "1年:{}%|3年:{}%|5年:{}%".format(
-            lump_sum_withdrawal_1year,
-            lump_sum_withdrawal_3year,
-            lump_sum_withdrawal_5year
+            data_wdww[7],
+            data_wdww[8],
+            data_wdww[9]
         ), 
         "icon": {
             "path": "img/money.png"
@@ -189,65 +133,29 @@ for tr in trs :
     alfredResponse.append(item)
     alfredResponse.append(item2)
 
-list_3month.sort(key=lambda e: e["rate"], reverse=True)
-list_6month.sort(key=lambda e: e["rate"], reverse=True)
-list_1year.sort(key=lambda e: e["rate"], reverse=True)
-list_2year.sort(key=lambda e: e["rate"], reverse=True)
-list_3year.sort(key=lambda e: e["rate"], reverse=True)
-list_5year.sort(key=lambda e: e["rate"], reverse=True)
-
-
-list_3month_item = {
-    "title":"三个月max {}, min {}".format(list_3month[0]["name"], list_3month[-1]["name"]),
-    "subtitle": subtitleFormat(list_3month),
-    "icon":{
-        "path": "img/money.png"
-    }
+name_map = {
+    "0":"三个月",
+    "1":"六个月",
+    "2":"一年",
+    "3":"二年",
+    "4":"三年",
+    "5":"五年"
 }
 
-list_6month_item = {
-    "title":"六个月max {}, min {}".format(list_6month[0]["name"], list_6month[-1]["name"]),
-    "subtitle": subtitleFormat(list_6month),
-    "icon":{
-        "path": "img/money.png"
+for i, ele in enumerate(list_data_item):
+    #print("{} => {}".format(i, ele))
+    ele.sort(key=lambda e: e["rate"], reverse=True)    
+    item = {
+        "title":"{}max {}, min {}".format(name_map[str(i)], ele[0]["name"], ele[-1]["name"]),
+        "subtitle": subtitleFormat(ele),
+        "icon":{
+            "path": "img/money.png"
+        }
     }
-}
-
-list_1year_item = {
-    "title":"一年max {}, min {}".format(list_1year[0]["name"], list_1year[-1]["name"]),
-    "subtitle": subtitleFormat(list_1year),
-    "icon":{
-        "path": "img/money.png"
-    }
-}
-
-list_2year_item = {
-    "title":"二年max {}, min {}".format(list_2year[0]["name"], list_2year[-1]["name"]),
-    "subtitle": subtitleFormat(list_2year),
-    "icon":{
-        "path": "img/money.png"
-    }
-}
-
-list_3year_item = {
-    "title":"三年max {}, min {}".format(list_3year[0]["name"], list_3year[-1]["name"]),
-    "subtitle": subtitleFormat(list_3year),
-    "icon":{
-        "path": "img/money.png"
-    }
-}
-
-
-list_5year_item = {
-    "title":"五年max {}, min {}".format(list_5year[0]["name"], list_5year[-1]["name"]),
-    "subtitle": subtitleFormat(list_5year),
-    "icon":{
-        "path": "img/money.png"
-    }
-}
+    alfredResponse = [item] + alfredResponse
 
 data = {
-    "items" : [list_3month_item, list_6month_item, list_1year_item, list_2year_item, list_3year_item, list_5year_item] + alfredResponse
+    "items" : alfredResponse
 }    
 
 print(json.dumps(data))
